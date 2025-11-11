@@ -39,7 +39,7 @@ public class CurrencyUpdateService {
         }
     }
 
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0 1 * * ?")
     public void realUpdateCurrencyRates() {
         log.info("Real exchange rate update: started");
 
@@ -74,7 +74,7 @@ public class CurrencyUpdateService {
         }
     }
 
-    private void updateCurrencyRate(Valute valute, LocalDate rateDate) {
+    public void updateCurrencyRate(Valute valute, LocalDate rateDate) {
 
         String valueString = valute.getValue().replace(",", ".");
         BigDecimal exchangeRate = new BigDecimal(valueString)

@@ -11,6 +11,7 @@ import java.time.LocalDate;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class CurrencyRateRequest {
 
     @NotBlank(message = "Currency code is required")

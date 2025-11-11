@@ -28,11 +28,11 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
     public CurrencyRateResponse createCurrencyRate(CurrencyRateRequest request) {
         log.debug("Creating currency rate for {} on {}", request.getCurrencyCode(), request.getRateDate());
 
-        if (currencyRateRepository.existsByCurrencyCodeAndRateDate(
-                request.getCurrencyCode(), request.getRateDate())) {
+        if (currencyRateRepository.existsByCurrencyCode(
+                request.getCurrencyCode())) {
             throw new CurrencyRateAlreadyExistsException(
-                    String.format("Currency rate for %s on %s already exists",
-                    request.getCurrencyCode(), request.getRateDate()));
+                    String.format("Currency rate for %s already exists",
+                    request.getCurrencyCode()));
         }
 
         CurrencyRate currencyRate = currencyRateMapper.toEntity(request);
@@ -89,11 +89,11 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
 
         if (!existingRate.getCurrencyCode().equals(request.getCurrencyCode()) ||
         !existingRate.getRateDate().equals(request.getRateDate())) {
-            if (currencyRateRepository.existsByCurrencyCodeAndRateDate(
-                    request.getCurrencyCode(), request.getRateDate())) {
+            if (currencyRateRepository.existsByCurrencyCode(
+                    request.getCurrencyCode())) {
                 throw new CurrencyRateAlreadyExistsException(
-                        String.format("Currency rate for %s on %s already exists",
-                                request.getCurrencyCode(), request.getRateDate()));
+                        String.format("Currency rate for %s already exists",
+                                request.getCurrencyCode()));
             }
         }
 
