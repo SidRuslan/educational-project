@@ -40,11 +40,12 @@ public class CurrencyRateServiceTest {
 
     @Test
     void shouldCreateCurrencyRateSuccessfully() {
+        LocalDate rateDate = LocalDate.of(2025, 11, 11);
         CurrencyRateRequest request = CurrencyRateRequest.builder()
                 .currencyCode("USD")
                 .currencyName("US Dollar")
                 .exchangeRate(new BigDecimal("75.5000"))
-                .rateDate(LocalDate.of(2025, 11, 11))
+                .rateDate(rateDate)
                 .build();
 
         CurrencyRate savedEntity = CurrencyRate.builder()
@@ -52,10 +53,10 @@ public class CurrencyRateServiceTest {
                 .currencyCode("USD")
                 .currencyName("US Dollar")
                 .exchangeRate(new BigDecimal("75.5000"))
-                .rateDate(LocalDate.of(2025, 11, 11))
+                .rateDate(rateDate)
                 .build();
 
-        when(currencyRateRepository.existsByCurrencyCode("USD")).thenReturn(false);
+        when(currencyRateRepository.existsByCurrencyCodeAndRateDate("USD", rateDate)).thenReturn(false);
         when(currencyRateRepository.save(any(CurrencyRate.class))).thenReturn(savedEntity);
 
         CurrencyRateResponse response = currencyRateService.createCurrencyRate(request);
@@ -67,14 +68,15 @@ public class CurrencyRateServiceTest {
 
     @Test
     void shouldThrowExceptionWhenCreatingDuplicateCurrencyRate()  {
+        LocalDate rateDate = LocalDate.of(2025, 11, 11);
         CurrencyRateRequest request = CurrencyRateRequest.builder()
                 .currencyCode("USD")
                 .currencyName("US Dollar")
                 .exchangeRate(new BigDecimal("75.5000"))
-                .rateDate(LocalDate.of(2025, 11, 11))
+                .rateDate(rateDate)
                 .build();
 
-        when(currencyRateRepository.existsByCurrencyCode("USD")).thenReturn(true);
+        when(currencyRateRepository.existsByCurrencyCodeAndRateDate("USD", rateDate)).thenReturn(true);
 
         assertThatThrownBy(() -> currencyRateService.createCurrencyRate(request))
                 .isInstanceOf(CurrencyRateAlreadyExistsException.class)
@@ -164,7 +166,9 @@ public class CurrencyRateServiceTest {
 
         when(currencyRateRepository.findById(id))
                 .thenReturn(Optional.of(existingEntity));
-        when(currencyRateRepository.existsByCurrencyCode("USD")).thenReturn(false);
+        when(currencyRateRepository.existsByCurrencyCodeAndRateDate("USD",
+                                    LocalDate.of(2025, 11, 15)))
+                .thenReturn(false);
         when(currencyRateRepository.save(any(CurrencyRate.class))).thenReturn(updatedEntity);
 
         CurrencyRateResponse response = currencyRateService.updateCurrencyRate(id, request);

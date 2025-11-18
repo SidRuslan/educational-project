@@ -73,7 +73,7 @@ public class CurrencyRateRepositoryTest {
     }
 
     @Test
-    void shouldCheckExistenceByCurrencyCode() {
+    void shouldCheckExistenceByCurrencyCodeAndDate() {
         LocalDate date = LocalDate.of(2025, 11, 11);
         CurrencyRate rate = CurrencyRate.builder()
                 .currencyCode("EUR")
@@ -83,8 +83,8 @@ public class CurrencyRateRepositoryTest {
                 .build();
         currencyRateRepository.save(rate);
 
-        boolean exist = currencyRateRepository.existsByCurrencyCode("EUR");
-        boolean notExist = currencyRateRepository.existsByCurrencyCode("USD");
+        boolean exist = currencyRateRepository.existsByCurrencyCodeAndRateDate("EUR", date);
+        boolean notExist = currencyRateRepository.existsByCurrencyCodeAndRateDate("USD", date);
 
         assertThat(exist).isTrue();
         assertThat(notExist).isFalse();

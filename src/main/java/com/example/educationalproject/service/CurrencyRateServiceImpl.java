@@ -9,6 +9,7 @@ import com.example.educationalproject.mapper.CurrencyRateMapper;
 import com.example.educationalproject.repository.CurrencyRateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +18,6 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class CurrencyRateServiceImpl implements CurrencyRateService {
 
@@ -28,20 +28,22 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
     public CurrencyRateResponse createCurrencyRate(CurrencyRateRequest request) {
         log.debug("Creating currency rate for {} on {}", request.getCurrencyCode(), request.getRateDate());
 
-        if (currencyRateRepository.existsByCurrencyCode(
-                request.getCurrencyCode())) {
+        try {
+            CurrencyRate currencyRate = currencyRateMapper.toEntity(request);
+            CurrencyRate newCurrencyRate = currencyRateRepository.save(currencyRate);
+
+            log.info("Created currency rate with id: {} for {} on {}",
+                    newCurrencyRate.getId(), newCurrencyRate.getCurrencyCode(), newCurrencyRate.getRateDate());
+
+            return currencyRateMapper.toResponse(newCurrencyRate);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Attempt to create duplicate currency rate for {} on {}",
+                    request.getCurrencyCode(), request.getRateDate());
+
             throw new CurrencyRateAlreadyExistsException(
-                    String.format("Currency rate for %s already exists",
-                    request.getCurrencyCode()));
+                    String.format("Currency rate for %s on %s already exists",
+                            request.getCurrencyCode(), request.getRateDate()));
         }
-
-        CurrencyRate currencyRate = currencyRateMapper.toEntity(request);
-        CurrencyRate newCurrencyRate = currencyRateRepository.save(currencyRate);
-
-        log.info("Created currency rate with id: {} for {} on {}",
-                newCurrencyRate.getId(), newCurrencyRate.getCurrencyCode(), newCurrencyRate.getRateDate());
-
-        return currencyRateMapper.toResponse(newCurrencyRate);
     }
 
     @Transactional(readOnly = true)
@@ -79,6 +81,7 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
         return currencyRateMapper.toResponse(currencyRate);
     }
 
+    @Transactional
     @Override
     public CurrencyRateResponse updateCurrencyRate(UUID id, CurrencyRateRequest request) {
         log.debug("Updating currency rate with id: {}", id);
@@ -87,34 +90,43 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
                 .orElseThrow(() -> new CurrencyRateNotFoundException(
                         String.format("Currency rate with id %s not found", id)));
 
-        if (!existingRate.getCurrencyCode().equals(request.getCurrencyCode()) ||
-        !existingRate.getRateDate().equals(request.getRateDate())) {
-            if (currencyRateRepository.existsByCurrencyCode(
-                    request.getCurrencyCode())) {
+        boolean keyFieldsChanged = !existingRate.getCurrencyCode().equals(request.getCurrencyCode()) ||
+                !existingRate.getRateDate().equals(request.getRateDate());
+
+        if (keyFieldsChanged) {
+            if (currencyRateRepository.existsByCurrencyCodeAndRateDate(
+                    request.getCurrencyCode(), request.getRateDate())) {
                 throw new CurrencyRateAlreadyExistsException(
-                        String.format("Currency rate for %s already exists",
-                                request.getCurrencyCode()));
+                        String.format("Currency rate for %s on %s already exists",
+                                request.getCurrencyCode(), request.getRateDate()));
             }
         }
 
-        currencyRateMapper.updateEntityFromRequest(request, existingRate);
-        CurrencyRate updatedCurrencyRate =  currencyRateRepository.save(existingRate);
+        try {
+            currencyRateMapper.updateEntityFromRequest(request, existingRate);
+            CurrencyRate updatedCurrencyRate =  currencyRateRepository.save(existingRate);
 
-        log.info("Updated currency rate with id: {}", updatedCurrencyRate.getId());
+            log.info("Updated currency rate with id: {}", updatedCurrencyRate.getId());
 
-        return currencyRateMapper.toResponse(updatedCurrencyRate);
+            return currencyRateMapper.toResponse(updatedCurrencyRate);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Data integrity violation while updating currency rate {}: {}", id, ex.getMessage());
+            throw new CurrencyRateAlreadyExistsException(
+                    String.format("Currency rate for %s on %s already exists",
+                            request.getCurrencyCode(), request.getRateDate()));
+        }
     }
 
+    @Transactional
     @Override
     public void deleteCurrencyRate(UUID id) {
         log.debug("Deleting currency rate with id: {}", id);
 
-        if (!currencyRateRepository.existsById(id)) {
-            throw new CurrencyRateNotFoundException(
-                    String.format("Currency rate with id %s not found", id));
-        }
+        CurrencyRate currencyRate = currencyRateRepository.findById(id)
+                .orElseThrow(() -> new CurrencyRateNotFoundException(
+                        String.format("Currency rate with id %s not found", id)));
 
-        currencyRateRepository.deleteById(id);
+        currencyRateRepository.delete(currencyRate);
         log.info("Deleted currency rate with id: {}", id);
     }
 }

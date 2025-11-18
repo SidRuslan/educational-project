@@ -13,7 +13,8 @@ public interface CurrencyRateRepository extends JpaRepository<CurrencyRate, UUID
     Optional<CurrencyRate> findByCurrencyCodeAndRateDate(String currencyCode, LocalDate rateDate);
 
     Optional<CurrencyRate> findByCurrencyCode(String currencyCode);
-    boolean existsByCurrencyCode(String currencyCode);
+    boolean existsByCurrencyCodeAndRateDate(String currencyCode, LocalDate rateDate);
+
 
 }
 
