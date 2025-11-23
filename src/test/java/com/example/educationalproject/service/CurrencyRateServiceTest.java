@@ -69,6 +69,7 @@ public class CurrencyRateServiceTest {
         assertThat(response.getId()).isEqualTo(UUID.fromString("abb7b36d-39f3-455b-8741-8d034a74ceb7"));
         assertThat(response.getCurrencyCode()).isEqualTo("USD");
         verify(currencyRateRepository).save(any(CurrencyRate.class));
+        verify(eventPublisher).publishCurrencyRateCreated(any(CurrencyRateResponse.class));
     }
 
     @Test
@@ -96,6 +97,7 @@ public class CurrencyRateServiceTest {
         assertThatThrownBy(() -> currencyRateService.createCurrencyRate(request))
                 .isInstanceOf(CurrencyRateAlreadyExistsException.class)
                 .hasMessage("Currency rate for USD on 2025-11-11 already exists");
+        verify(eventPublisher, never()).publishCurrencyRateCreated(any(CurrencyRateResponse.class));
     }
 
     @Test
@@ -191,6 +193,7 @@ public class CurrencyRateServiceTest {
         assertThat(response.getId()).isEqualTo(id);
         assertThat(response.getCurrencyCode()).isEqualTo("USD");
         verify(currencyRateRepository).save(any(CurrencyRate.class));
+        verify(eventPublisher).publishCurrencyRateUpdated(any(CurrencyRateResponse.class));
     }
 
     @Test
@@ -210,6 +213,7 @@ public class CurrencyRateServiceTest {
         currencyRateService.deleteCurrencyRate(id);
 
         verify(currencyRateRepository).delete(any(CurrencyRate.class));
+        verify(eventPublisher).publishCurrencyRateDeleted(any(CurrencyRateResponse.class));
     }
 
     @Test
@@ -222,6 +226,7 @@ public class CurrencyRateServiceTest {
                 .hasMessage("Currency rate with id 6cbabb71-f62d-4021-870b-864f36c52e2c not found");
 
         verify(currencyRateRepository, never()).delete(any(CurrencyRate.class));
+        verify(eventPublisher, never()).publishCurrencyRateDeleted(any(CurrencyRateResponse.class));
     }
 
 }
