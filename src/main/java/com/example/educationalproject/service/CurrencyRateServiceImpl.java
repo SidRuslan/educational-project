@@ -5,6 +5,7 @@ import com.example.educationalproject.dto.CurrencyRateResponse;
 import com.example.educationalproject.entity.CurrencyRate;
 import com.example.educationalproject.exception.CurrencyRateAlreadyExistsException;
 import com.example.educationalproject.exception.CurrencyRateNotFoundException;
+import com.example.educationalproject.kafka.CurrencyRateEventPublisher;
 import com.example.educationalproject.mapper.CurrencyRateMapper;
 import com.example.educationalproject.repository.CurrencyRateRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
 
     private final CurrencyRateRepository currencyRateRepository;
     private final CurrencyRateMapper currencyRateMapper;
+    private final CurrencyRateEventPublisher currencyRateEventPublisher;
 
     @Override
     public CurrencyRateResponse createCurrencyRate(CurrencyRateRequest request) {
@@ -31,11 +33,13 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
         try {
             CurrencyRate currencyRate = currencyRateMapper.toEntity(request);
             CurrencyRate newCurrencyRate = currencyRateRepository.save(currencyRate);
-
+            CurrencyRateResponse response = currencyRateMapper.toResponse(newCurrencyRate);
             log.info("Created currency rate with id: {} for {} on {}",
                     newCurrencyRate.getId(), newCurrencyRate.getCurrencyCode(), newCurrencyRate.getRateDate());
 
-            return currencyRateMapper.toResponse(newCurrencyRate);
+            currencyRateEventPublisher.publishCurrencyRateCreated(response);
+
+            return response;
         } catch (DataIntegrityViolationException ex) {
             log.warn("Attempt to create duplicate currency rate for {} on {}",
                     request.getCurrencyCode(), request.getRateDate());
@@ -105,10 +109,13 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
         try {
             currencyRateMapper.updateEntityFromRequest(request, existingRate);
             CurrencyRate updatedCurrencyRate =  currencyRateRepository.save(existingRate);
+            CurrencyRateResponse response = currencyRateMapper.toResponse(updatedCurrencyRate);
 
             log.info("Updated currency rate with id: {}", updatedCurrencyRate.getId());
 
-            return currencyRateMapper.toResponse(updatedCurrencyRate);
+            currencyRateEventPublisher.publishCurrencyRateUpdated(response);
+
+            return response;
         } catch (DataIntegrityViolationException ex) {
             log.warn("Data integrity violation while updating currency rate {}: {}", id, ex.getMessage());
             throw new CurrencyRateAlreadyExistsException(
@@ -126,7 +133,11 @@ public class CurrencyRateServiceImpl implements CurrencyRateService {
                 .orElseThrow(() -> new CurrencyRateNotFoundException(
                         String.format("Currency rate with id %s not found", id)));
 
+        CurrencyRateResponse response = currencyRateMapper.toResponse(currencyRate);
+
         currencyRateRepository.delete(currencyRate);
         log.info("Deleted currency rate with id: {}", id);
+
+        currencyRateEventPublisher.publishCurrencyRateDeleted(response);
     }
 }

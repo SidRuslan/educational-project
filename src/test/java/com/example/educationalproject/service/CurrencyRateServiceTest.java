@@ -5,6 +5,7 @@ import com.example.educationalproject.dto.CurrencyRateResponse;
 import com.example.educationalproject.entity.CurrencyRate;
 import com.example.educationalproject.exception.CurrencyRateAlreadyExistsException;
 import com.example.educationalproject.exception.CurrencyRateNotFoundException;
+import com.example.educationalproject.kafka.CurrencyRateEventPublisher;
 import com.example.educationalproject.mapper.CurrencyRateMapper;
 import com.example.educationalproject.mapper.CurrencyRateMapperImpl;
 import com.example.educationalproject.repository.CurrencyRateRepository;
@@ -14,9 +15,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +34,9 @@ public class CurrencyRateServiceTest {
 
     @Mock
     private CurrencyRateRepository currencyRateRepository;
+
+    @Mock
+    private CurrencyRateEventPublisher eventPublisher;
 
     @Spy
     private CurrencyRateMapper currencyRateMapper = new CurrencyRateMapperImpl();
@@ -56,7 +62,6 @@ public class CurrencyRateServiceTest {
                 .rateDate(rateDate)
                 .build();
 
-        when(currencyRateRepository.existsByCurrencyCodeAndRateDate("USD", rateDate)).thenReturn(false);
         when(currencyRateRepository.save(any(CurrencyRate.class))).thenReturn(savedEntity);
 
         CurrencyRateResponse response = currencyRateService.createCurrencyRate(request);
@@ -75,12 +80,22 @@ public class CurrencyRateServiceTest {
                 .exchangeRate(new BigDecimal("75.5000"))
                 .rateDate(rateDate)
                 .build();
+        CurrencyRate currencyRate = CurrencyRate.builder()
+                .id(UUID.fromString("abb7b36d-39f3-455b-8741-8d034a74ceb7"))
+                .currencyCode("USD")
+                .currencyName("US Dollar")
+                .exchangeRate(new BigDecimal("75.5000"))
+                .rateDate(rateDate)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
 
-        when(currencyRateRepository.existsByCurrencyCodeAndRateDate("USD", rateDate)).thenReturn(true);
+        when(currencyRateMapper.toEntity(request)).thenReturn(currencyRate);
+        when(currencyRateRepository.save(currencyRate)).thenThrow(DataIntegrityViolationException.class);
 
         assertThatThrownBy(() -> currencyRateService.createCurrencyRate(request))
                 .isInstanceOf(CurrencyRateAlreadyExistsException.class)
-                .hasMessage("Currency rate for USD already exists");
+                .hasMessage("Currency rate for USD on 2025-11-11 already exists");
     }
 
     @Test
@@ -181,25 +196,32 @@ public class CurrencyRateServiceTest {
     @Test
     void shouldDeleteCurrencyRate() {
         UUID id = UUID.fromString("6cbabb71-f62d-4021-870b-864f36c52e2c");
+        CurrencyRate existingEntity = CurrencyRate.builder()
+                .id(id)
+                .currencyCode("OLD")
+                .currencyName("Old Name")
+                .exchangeRate(new BigDecimal("50.0000"))
+                .rateDate(LocalDate.of(2025, 11, 11))
+                .build();
 
-        when(currencyRateRepository.existsById(id)).thenReturn(true);
+        when(currencyRateRepository.findById(id))
+                .thenReturn(Optional.of(existingEntity));
 
         currencyRateService.deleteCurrencyRate(id);
 
-        verify(currencyRateRepository).deleteById(id);
+        verify(currencyRateRepository).delete(any(CurrencyRate.class));
     }
 
     @Test
     void shouldThrowExceptionWhenDeletingNonExistentCurrencyRate() {
         UUID id = UUID.fromString("6cbabb71-f62d-4021-870b-864f36c52e2c");
-
-        when(currencyRateRepository.existsById(id)).thenReturn(false);
+        when(currencyRateRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> currencyRateService.deleteCurrencyRate(id))
                 .isInstanceOf(CurrencyRateNotFoundException.class)
                 .hasMessage("Currency rate with id 6cbabb71-f62d-4021-870b-864f36c52e2c not found");
 
-        verify(currencyRateRepository, never()).deleteById(any(UUID.class));
+        verify(currencyRateRepository, never()).delete(any(CurrencyRate.class));
     }
 
 }

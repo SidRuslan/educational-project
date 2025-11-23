@@ -14,6 +14,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,7 +48,7 @@ public class CurrencyUpdateServiceTest {
 
     @Test
     void realUpdateCurrencyRates_ShouldUpdateRatesSuccessfully() {
-        String today = "11/11/2025";
+        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
         ValCurs valCurs = new ValCurs();
         valCurs.setDate("11.11.2025");
@@ -102,7 +103,7 @@ public class CurrencyUpdateServiceTest {
 
     @Test
     void realUpdateCurrencyRates_WhenUpdateFailsForOneCurrency_ShouldContinueWithOthers() {
-        String today = "11/11/2025";
+        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         LocalDate rateDate = LocalDate.of(2025, 11, 11);
 
         ValCurs valCurs = new ValCurs();
