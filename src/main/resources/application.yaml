@@ -1,0 +1,52 @@
+spring:
+
+  main:
+    allow-bean-definition-overriding: true
+
+  application:
+    name: educational-project
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/educational_db
+    username: postgres
+    password: testtest
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        show_sql: true
+        format_sql: true
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: currency-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.example.educationalproject.dto.kafka"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+app:
+  kafka:
+    topics:
+      currency-rate-created: currency-rate-created
+      currency-rate-updated: currency-rate-updated
+      currency-rate-deleted: currency-rate-deleted
+
+cbr:
+  url: https://cbr.ru/scripts/XML_daily.asp
+
+logging:
+  level:
+    com.example.educationalproject: DEBUG

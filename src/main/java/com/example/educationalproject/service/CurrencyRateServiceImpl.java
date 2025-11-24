@@ -1,0 +1,143 @@
+package com.example.educationalproject.service;
+
+import com.example.educationalproject.dto.CurrencyRateRequest;
+import com.example.educationalproject.dto.CurrencyRateResponse;
+import com.example.educationalproject.entity.CurrencyRate;
+import com.example.educationalproject.exception.CurrencyRateAlreadyExistsException;
+import com.example.educationalproject.exception.CurrencyRateNotFoundException;
+import com.example.educationalproject.kafka.CurrencyRateEventPublisher;
+import com.example.educationalproject.mapper.CurrencyRateMapper;
+import com.example.educationalproject.repository.CurrencyRateRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class CurrencyRateServiceImpl implements CurrencyRateService {
+
+    private final CurrencyRateRepository currencyRateRepository;
+    private final CurrencyRateMapper currencyRateMapper;
+    private final CurrencyRateEventPublisher currencyRateEventPublisher;
+
+    @Override
+    public CurrencyRateResponse createCurrencyRate(CurrencyRateRequest request) {
+        log.debug("Creating currency rate for {} on {}", request.getCurrencyCode(), request.getRateDate());
+
+        try {
+            CurrencyRate currencyRate = currencyRateMapper.toEntity(request);
+            CurrencyRate newCurrencyRate = currencyRateRepository.save(currencyRate);
+            CurrencyRateResponse response = currencyRateMapper.toResponse(newCurrencyRate);
+            log.info("Created currency rate with id: {} for {} on {}",
+                    newCurrencyRate.getId(), newCurrencyRate.getCurrencyCode(), newCurrencyRate.getRateDate());
+
+            currencyRateEventPublisher.publishCurrencyRateCreated(response);
+
+            return response;
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Attempt to create duplicate currency rate for {} on {}",
+                    request.getCurrencyCode(), request.getRateDate());
+
+            throw new CurrencyRateAlreadyExistsException(
+                    String.format("Currency rate for %s on %s already exists",
+                            request.getCurrencyCode(), request.getRateDate()));
+        }
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public CurrencyRateResponse getCurrencyRateById(UUID id) {
+        log.debug("Fetching currency rate by id: {}", id);
+
+        CurrencyRate currencyRate = currencyRateRepository.findById(id)
+                .orElseThrow(() -> new CurrencyRateNotFoundException(
+                        String.format("Currency rate with id %s not found", id)));
+
+        return currencyRateMapper.toResponse(currencyRate);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<CurrencyRateResponse> getAllCurrencyRates() {
+        log.debug("Fetching all currency rates");
+
+        List<CurrencyRate> rates = currencyRateRepository.findAll();
+
+        return currencyRateMapper.toResponseList(rates);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public CurrencyRateResponse getCurrencyRateByCode(String currencyCode) {
+        log.debug("Fetching latest currency rate for {}", currencyCode);
+
+        CurrencyRate currencyRate = currencyRateRepository
+                .findByCurrencyCode(currencyCode)
+                .orElseThrow(() -> new CurrencyRateNotFoundException(
+                        String.format("No currency rate found for %s", currencyCode)));
+
+        return currencyRateMapper.toResponse(currencyRate);
+    }
+
+    @Transactional
+    @Override
+    public CurrencyRateResponse updateCurrencyRate(UUID id, CurrencyRateRequest request) {
+        log.debug("Updating currency rate with id: {}", id);
+
+        CurrencyRate existingRate = currencyRateRepository.findById(id)
+                .orElseThrow(() -> new CurrencyRateNotFoundException(
+                        String.format("Currency rate with id %s not found", id)));
+
+        boolean keyFieldsChanged = !existingRate.getCurrencyCode().equals(request.getCurrencyCode()) ||
+                !existingRate.getRateDate().equals(request.getRateDate());
+
+        if (keyFieldsChanged) {
+            if (currencyRateRepository.existsByCurrencyCodeAndRateDate(
+                    request.getCurrencyCode(), request.getRateDate())) {
+                throw new CurrencyRateAlreadyExistsException(
+                        String.format("Currency rate for %s on %s already exists",
+                                request.getCurrencyCode(), request.getRateDate()));
+            }
+        }
+
+        try {
+            currencyRateMapper.updateEntityFromRequest(request, existingRate);
+            CurrencyRate updatedCurrencyRate =  currencyRateRepository.save(existingRate);
+            CurrencyRateResponse response = currencyRateMapper.toResponse(updatedCurrencyRate);
+
+            log.info("Updated currency rate with id: {}", updatedCurrencyRate.getId());
+
+            currencyRateEventPublisher.publishCurrencyRateUpdated(response);
+
+            return response;
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Data integrity violation while updating currency rate {}: {}", id, ex.getMessage());
+            throw new CurrencyRateAlreadyExistsException(
+                    String.format("Currency rate for %s on %s already exists",
+                            request.getCurrencyCode(), request.getRateDate()));
+        }
+    }
+
+    @Transactional
+    @Override
+    public void deleteCurrencyRate(UUID id) {
+        log.debug("Deleting currency rate with id: {}", id);
+
+        CurrencyRate currencyRate = currencyRateRepository.findById(id)
+                .orElseThrow(() -> new CurrencyRateNotFoundException(
+                        String.format("Currency rate with id %s not found", id)));
+
+        CurrencyRateResponse response = currencyRateMapper.toResponse(currencyRate);
+
+        currencyRateRepository.delete(currencyRate);
+        log.info("Deleted currency rate with id: {}", id);
+
+        currencyRateEventPublisher.publishCurrencyRateDeleted(response);
+    }
+}
